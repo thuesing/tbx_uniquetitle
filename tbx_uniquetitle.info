@@ -1,0 +1,5 @@
+name        = Tbx Unique title
+description = This module help to prevent the same node titles
+core        = 7.x
+
+
