@@ -5,49 +5,38 @@
  * This module help to prevent the title duplications.
  */
 
-
-
+/** 
+ * https://api.drupal.org/api/drupal/modules!node!node.api.php/function/hook_node_validate/7
+ */
 
 function tbx_uniquetitle_node_validate($node, $form, &$form_state) {
-
   $query = new EntityFieldQuery();
   $query->entityCondition('entity_type', 'node');
   //$query->entityCondition('bundle', 'article');
   $query->propertyCondition('title', $node->title);
-  if ($node->nid) {
+  if ($node->nid) { // existing node edited
     $query->propertyCondition('nid', $node->nid, '<>'); // ignore the current node
   }
-
-
-  $flag = (bool)$query->range(0, 1)->count()->execute();
-  if($flag){
-   form_set_error('title', t('The title "' . $node->title .'" is already used within the toolbox.'));
-  }  
-
-
-  /*
-$result = $query->execute();
-
-if (isset($result['node'])) {
-  $nids = array_keys($result['node']);
-  $news_items = entity_load('node', $nids);
-}
-
-  */
-
-
-}
-
+  //$flag_dup_title = (bool)$query->range(0, 1)->count()->execute();
+  $result = $query->execute();
+  //die(kpr($form_state));
+  if (isset($result['node']) AND $form_state['values']['op'] != 'Delete') { // If not deleting, validate
+      $nids = array_keys($result['node']);
+      // $dup_nodes = entity_load('node', $nids);
+      foreach ($result['node'] as $key => $value) {
+        $url = 'node/'.$key;
+        form_set_error('name', t('The title "%title" is already used. See title in use ' . l('here',$url), array('%title' => check_plain($node->title))));  
+      }
+  }
+}  
 
 /**
  * Implements hook_form_FORM_ID_alter() for taxonomy_form_term().
  */
-//function tbx_uniquetitle_form_alter(&$form, &$form_state, $form_id) {
 
 function tbx_uniquetitle_form_taxonomy_form_term_alter(&$form, &$form_state, $form_id) {
 
   // Add the validator if we're not deleting the term.
-  // This handles the problem of validators running during the delete process.
   // see https://drupal.org/node/1132800
   if (!isset($form_state['input']['op']) || $form_state['input']['op'] != 'Delete') {
       $form['#validate'][] = '_tbx_uniquetitle_check_dup'; 
@@ -57,31 +46,24 @@ function tbx_uniquetitle_form_taxonomy_form_term_alter(&$form, &$form_state, $fo
 
 
 function _tbx_uniquetitle_check_dup($form, &$form_state) {
-  // taxonomy_form_term_validate
-  //dpr($form['#validate']);
-  //dpr($form);
-
-  $name = $form['#term']['name'];
-
+  
+  $name = $form_state['values']['name'];
+  // $vid  = $form_state['values']['vid'];
   $dup_terms = taxonomy_get_term_by_name($name);
-
-  //dpr(count($dup_terms);
-
-
-  // TODO greift nicht bei Neuem Term
-  // TODO check form if new and validate according 
-  $term = $form_state['values']['name'];
-  $vid  = $form_state['values']['vid'];
-  $tid  = $form_state['values']['tid'];
-
+  //die(dpr($dup_terms));
+  $tid  = $form_state['values']['tid']; 
+  if ($tid) { // existing term edited
+    unset($dup_terms[$tid]);
+  }
   foreach ($dup_terms as $dup_tid => $value) {
-    if($dup_tid <> $tid) {
+    //if($dup_tid <> $tid) {
       $url = 'taxonomy/term/'.$dup_tid;
-      form_set_error('name', t('The term %name is already used. See ' . l('here',$url), array('%name' => check_plain($name))));      
-    }
+      form_set_error('name', t('The term "%name" is already used. See term in use ' . l('here',$url), array('%name' => check_plain($name))));      
+    //}
   }
 
 }
+
 
 //https://api.drupal.org/api/drupal/modules%21taxonomy%21taxonomy.api.php/function/hook_taxonomy_term_insert/7
 
@@ -92,24 +74,3 @@ function tbx_uniquetitle_taxonomy_term_insert(){
 function tbx_uniquetitle_taxonomy_term_update(){
 
 }
-
-/*
-        $message = t("The value in the '%label' field already been used!", array('%label' => $a3['title']['#title']));
-        $exists = node_load($exists->nid);
-        if (node_access('view', $exists)) {
-          // @Notice: target attribute is invalid
-          // http://www.w3.org/MarkUp/2004/xhtml-faq#target
-          $message .= ' '. t(
-            'You can view the existing one <a!attributes>here</a>.',
-            array('!attributes' => drupal_attributes(array('href' => url("node/{$exists->nid}"), 'target' => '_blank')))
-          );
-        }
-        else {
-          $message .= ' '. t('You have no access to view the exists one');
-        }
-        form_set_error('title', $message);
-      */
-
-
-
-
